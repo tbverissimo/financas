@@ -536,6 +536,22 @@ select.selpag{font-size:11.5px;padding:5px 22px 5px 8px;color:var(--ink2);max-wi
 }
 .versao{font-family:"DM Mono",monospace;font-size:10.5px;color:var(--ink3);opacity:.7;
   border:1px solid var(--line);border-radius:20px;padding:3px 9px}
+/* selo de versão, para não haver dúvida de qual arquivo está aberto */
+.selo-versao{font-family:"DM Mono",monospace;font-size:11px;color:var(--ink2);
+  background:#F0FAF6;border:1px solid rgba(95,201,168,.45);border-radius:20px;
+  padding:6px 13px;display:inline-block;margin:12px 0 0}
+/* revisão da importação */
+.pill.rep{background:#FFF0F5;border-color:#F7C8DA;color:var(--rosa)}
+tr.fora td{opacity:.4}
+tr.fora td.desc{text-decoration:line-through}
+@media (max-width:760px){
+  .tbl.rev tbody tr{grid-template-columns:26px 1fr auto}
+  .tbl.rev tbody tr>td:nth-child(1){grid-column:1;grid-row:1}
+  .tbl.rev tbody tr>td:nth-child(2){grid-column:2;grid-row:1}
+  .tbl.rev tbody tr>td:nth-child(5){grid-column:3;grid-row:1;text-align:right;white-space:nowrap}
+  .tbl.rev tbody tr>td:nth-child(3){grid-column:2/4;grid-row:2}
+  .tbl.rev tbody tr>td:nth-child(4){grid-column:2/4;grid-row:3}
+}
 </style>
 
 <div class="wrap">
@@ -564,6 +580,7 @@ select.selpag{font-size:11.5px;padding:5px 22px 5px 8px;color:var(--ink2);max-wi
     <div class="tira" id="tira"></div>
   </section>
 
+  <div class="selo-versao" id="seloVersao">versão 19/10 · importa CSV</div>
   <div id="limitesTopo"></div>
 
   <div class="tabs" role="tablist">
@@ -691,7 +708,9 @@ select.selpag{font-size:11.5px;padding:5px 22px 5px 8px;color:var(--ink2);max-wi
     </div>
     <div class="card" style="margin-top:14px">
       <h3><span id="lancCount" style="font-family:'Inter Tight';font-size:13px;font-weight:500"></span>
-        <span style="display:flex;gap:7px"><button class="btn ghost sm" id="exportar">Exportar CSV</button></span></h3>
+        <span style="display:flex;gap:7px"><button class="btn ghost sm" id="importar">Importar CSV</button>
+        <button class="btn ghost sm" id="exportar">Exportar CSV</button>
+        <input type="file" id="arqCSV" accept=".csv,.txt,text/csv" style="display:none"></span></h3>
       <div class="scroll"><table class="tbl" id="lancTbl"></table></div>
     </div>
     <div class="card" style="margin-top:14px">
@@ -757,7 +776,7 @@ select.selpag{font-size:11.5px;padding:5px 22px 5px 8px;color:var(--ink2);max-wi
 
   <div class="footer">
     <span id="statusSalvo">Verificando onde salvar…</span>
-    <span class="versao" title="versão deste arquivo">v25/09 · 21h50</span>
+    <span class="versao" title="versão deste arquivo">versão 19/10</span>
     <button id="backup">Baixar backup</button>
     <button id="restaurar">Restaurar backup</button>
     <button id="reset">Limpar tudo</button>
@@ -2813,14 +2832,16 @@ document.body.addEventListener('click',e=>{
     const en=acha(S.entradas,d.delent), ym=S.mes;
     if(!en) return;
     if(!entradaEmOutrosMeses(en,ym)){ S.entradas=apagar(S.entradas,en.id); render(); return; }
+    const prox=mesLabel(mesShift(ym,1)), ant=mesLabel(mesShift(ym,-1));
     abrirForm(`Remover ${en.nome}`,
-      'Essa entrada se repete todo mês. De onde você quer tirar?',
+      `Essa entrada se repete todo mês. Escolhendo "só de ${mesLabel(ym)}", ${ant} e ${prox} continuam com ela.`,
       [{k:'alcance',lbl:'Remover',tipo:'select',
         opts:[`Só de ${mesLabel(ym)}`,`De ${mesLabel(ym)} em diante`,'De todos os meses']}],
       o=>{
         if(o.alcance.startsWith('Só')){
           en.pulos=en.pulos||{}; en.pulos[ym]=1; tocar(en);
-          toast(`${en.nome} saiu de ${mesLabel(ym)}. Os outros meses continuam.`);
+          const quantos=mesesComDados().filter(m=>entradaVale(en,m)).length;
+          toast(`${en.nome} saiu de ${mesLabel(ym)} e continua em ${quantos} ${quantos===1?'mês':'meses'}.`);
         }else if(o.alcance.includes('em diante')){
           if(mesDiff(ym,en.mes)<=0){ S.entradas=apagar(S.entradas,en.id); toast(`${en.nome} removida.`); }
           else { en.ate=mesShift(ym,-1); tocar(en); toast(`${en.nome} vale até ${mesLabel(en.ate)}.`); }
@@ -2835,14 +2856,16 @@ document.body.addEventListener('click',e=>{
     const f=acha(S.fixos,d.delfix), ym=S.mes;
     if(!f) return;
     if(!temOutrosMeses(f,ym)){ S.fixos=apagar(S.fixos,f.id); render(); return; }
+    const prox2=mesLabel(mesShift(ym,1)), ant2=mesLabel(mesShift(ym,-1));
     abrirForm(`Remover ${f.nome}`,
-      'Esse fixo se repete todo mês. De onde você quer tirar?',
+      `Esse fixo se repete todo mês. Escolhendo "só de ${mesLabel(ym)}", ${ant2} e ${prox2} continuam com ele.`,
       [{k:'alcance',lbl:'Remover',tipo:'select',
         opts:[`Só de ${mesLabel(ym)}`,`De ${mesLabel(ym)} em diante`,'De todos os meses']}],
       o=>{
         if(o.alcance.startsWith('Só')){
           f.pulos=f.pulos||{}; f.pulos[ym]=1; tocar(f);
-          toast(`${f.nome} saiu de ${mesLabel(ym)}. Os outros meses continuam.`);
+          const q2=mesesComDados().filter(m=>fixoVale(f,m)).length;
+          toast(`${f.nome} saiu de ${mesLabel(ym)} e continua em ${q2} ${q2===1?'mês':'meses'}.`);
         }else if(o.alcance.startsWith('De ')&&o.alcance.includes('em diante')){
           if(mesDiff(ym,f.desde)<=0){ S.fixos=apagar(S.fixos,f.id); toast(`${f.nome} removido.`); }
           else { f.ate=mesShift(ym,-1); tocar(f); toast(`${f.nome} vale até ${mesLabel(f.ate)}.`); }
@@ -2905,6 +2928,99 @@ document.getElementById('openPaste').onclick=()=>{
   document.getElementById('pasteTxt').value='';dP.showModal();
 };
 document.getElementById('pasteCancel').onclick=()=>dP.close();
+/* ============================================================
+   IMPORTAR CSV — extrato ou fatura de qualquer banco
+   ============================================================ */
+
+/* Separa uma linha de CSV respeitando aspas */
+function linhaCSV(linha,sep){
+  const out=[]; let campo='', dentro=false;
+  for(let i=0;i<linha.length;i++){
+    const c=linha[i];
+    if(c==='"'){ if(dentro&&linha[i+1]==='"'){campo+='"';i++} else dentro=!dentro; }
+    else if(c===sep&&!dentro){ out.push(campo); campo=''; }
+    else campo+=c;
+  }
+  out.push(campo);
+  return out.map(x=>x.trim().replace(/^"|"$/g,'').trim());
+}
+
+/* Qual separador o arquivo usa */
+function acharSep(texto){
+  const amostra=texto.split(/\r?\n/).slice(0,5).join('\n');
+  const cand=[';',',','\t','|'];
+  let melhor=';', max=-1;
+  cand.forEach(c=>{
+    const n=(amostra.match(new RegExp(c==='|'?'\\|':c,'g'))||[]).length;
+    if(n>max){max=n;melhor=c==='\\t'?'\t':c}
+  });
+  return melhor==='\\t'?'\t':melhor;
+}
+
+/* Data em qualquer formato comum */
+function lerData(txt){
+  if(!txt) return '';
+  const t=txt.trim();
+  let m=t.match(/^(\d{4})-(\d{2})-(\d{2})/);                     // 2026-09-20
+  if(m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m=t.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);        // 20/09/2026
+  if(m){ const a=m[3].length===2?'20'+m[3]:m[3];
+    return `${a}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`; }
+  m=t.match(/^(\d{1,2})[\/\-.](\d{1,2})$/);                      // 20/09
+  if(m) return `${S.mes.slice(0,4)}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  return '';
+}
+
+/* Valor em formato brasileiro ou americano */
+function lerValor(txt){
+  if(txt===undefined||txt===null) return NaN;
+  let t=String(txt).replace(/[R$\s\u00a0]/gi,'').replace(/^\+/,'');
+  if(!t||!/\d/.test(t)) return NaN;
+  const neg=/^-/.test(t)||/^\(.*\)$/.test(t);
+  t=t.replace(/[()\-]/g,'');
+  const temP=t.includes('.'), temV=t.includes(',');
+  if(temP&&temV){ t = t.lastIndexOf(',')>t.lastIndexOf('.')
+      ? t.replace(/\./g,'').replace(',','.')     // 1.234,56
+      : t.replace(/,/g,''); }                     // 1,234.56
+  else if(temV){ t = /,\d{1,2}$/.test(t) ? t.replace(',','.') : t.replace(/,/g,''); }
+  else if(temP){ if(!/\.\d{1,2}$/.test(t)) t=t.replace(/\./g,''); }
+  const v=parseFloat(t);
+  return isNaN(v)?NaN:(neg?-v:v);
+}
+
+/* Descobre qual coluna é data, descrição e valor olhando o conteúdo */
+function mapearColunas(linhas){
+  const n=linhas[0].length;
+  const pontos=Array.from({length:n},()=>({data:0,valor:0,texto:0}));
+  linhas.forEach(l=>l.forEach((c,i)=>{
+    if(i>=n) return;
+    if(lerData(c)) pontos[i].data++;
+    const v=lerValor(c);
+    if(!isNaN(v)&&/[\d]/.test(c)&&!lerData(c)) pontos[i].valor++;
+    if(c && !lerData(c) && isNaN(lerValor(c)) && c.length>2) pontos[i].texto++;
+  }));
+  const pega=(chave,exceto=[])=>{
+    let melhor=-1,max=0;
+    pontos.forEach((p,i)=>{ if(exceto.includes(i))return;
+      if(p[chave]>max){max=p[chave];melhor=i} });
+    return max>=Math.max(1,linhas.length*0.5)?melhor:-1;
+  };
+  const iData=pega('data');
+  const iTexto=pega('texto',[iData]);
+  /* o valor costuma ser a última coluna numérica */
+  let iValor=-1,maxV=0;
+  pontos.forEach((p,i)=>{ if(i===iData||i===iTexto)return;
+    if(p.valor>=maxV){maxV=p.valor;iValor=i} });
+  return {iData,iTexto,iValor};
+}
+
+/* Já existe um lançamento igual? */
+function jaExiste(x){
+  const chave=t=>norm(t).replace(/[^a-z0-9]/g,'').slice(0,14);
+  return S.lancamentos.some(l=>
+    l.data===x.data && Math.abs(l.valor-x.valor)<0.005 && chave(l.desc)===chave(x.desc));
+}
+
 let pendente=[];
 document.getElementById('pasteGo').onclick=()=>{
   pendente=document.getElementById('pasteTxt').value.split('\n').map(l=>l.trim()).filter(Boolean).map(linha=>{
@@ -2923,25 +3039,59 @@ document.getElementById('pasteGo').onclick=()=>{
   }).filter(x=>x.valor>0&&x.desc);
   if(!pendente.length){toast('Não consegui ler nenhuma linha. Confere o formato.');return}
   dP.close();
-  const semCat=pendente.filter(x=>x.cat==='Outros').length;
-  document.getElementById('revTbl').innerHTML=
-    `<thead><tr><th>Descrição</th><th>Categoria</th><th>Quem</th><th style="text-align:right">Valor</th></tr></thead><tbody>`
-    +pendente.map((x,i)=>`<tr${x.cat==='Outros'?' style="background:#FFF4F8"':''}>
-      <td class="desc">${esc(x.desc)}</td><td>${selCat(x.cat,'rc',i)}</td>
-      <td>${selQuem(x.quem,'rq',i)}</td><td class="r">${brl(x.valor)}</td></tr>`).join('')+`</tbody>`;
-  document.getElementById('revP').textContent=semCat
-    ? `${pendente.length} linhas lidas. ${semCat} sem categoria — estão marcadas em rosa.`
-    : `${pendente.length} linhas lidas e todas categorizadas. Ajusta o que estiver errado — vira regra.`;
-  dR.showModal();
+  pendente.forEach(x=>{x.dup=jaExiste(x); x.fora=false});
+  mostrarRevisao(false);
 };
+
+/* Tela de revisão — serve para colar texto e para importar CSV */
+function mostrarRevisao(doCSV){
+  const semCat=pendente.filter(x=>x.cat==='Outros'&&!x.fora).length;
+  const reps=pendente.filter(x=>x.dup).length;
+  pendente.forEach(x=>{ if(x.dup&&x.fora===undefined) x.fora=true; });
+  if(doCSV) pendente.forEach(x=>{ if(x.dup) x.fora=true; });
+
+  document.getElementById('revTbl').className='tbl mob rev';
+  document.getElementById('revTbl').innerHTML=
+    `<thead><tr><th style="width:30px">Entra</th><th>Descrição</th><th>Categoria</th><th>Quem</th>
+     <th style="text-align:right">Valor</th></tr></thead><tbody>`
+    +pendente.map((x,i)=>`<tr class="${x.fora?'fora':''}"${!x.fora&&x.cat==='Outros'?' style="background:#FFF4F8"':''}>
+      <td><input type="checkbox" class="chk" data-rin="${i}" ${x.fora?'':'checked'} aria-label="Incluir"></td>
+      <td class="desc">${esc(x.desc)}
+        ${x.data?`<span class="mini">${dm(x.data)}</span>`:''}
+        ${x.dup?'<span class="pill rep">já lançado</span>':''}</td>
+      <td>${selCat(x.cat,'rc',i)}</td>
+      <td>${selQuem(x.quem,'rq',i)}</td>
+      <td class="r">${brl(x.valor)}</td></tr>`).join('')+`</tbody>`;
+
+  const entram=pendente.filter(x=>!x.fora);
+  const soma=entram.reduce((a,x)=>a+x.valor,0);
+  const partes=[`<b>${entram.length} de ${pendente.length}</b> vão entrar — ${brl(soma)}`];
+  if(reps) partes.push(`${reps} ${reps===1?'já estava lançado e foi desmarcado':'já estavam lançados e foram desmarcados'}`);
+  if(semCat) partes.push(`${semCat} sem categoria, em rosa`);
+  if(doCSV&&csvInfo.pagamentos) partes.push(`${csvInfo.pagamentos} ${csvInfo.pagamentos===1?'linha negativa ignorada':'linhas negativas ignoradas'} (estorno ou pagamento)`);
+  document.getElementById('revP').innerHTML=partes.join(' · ')+'.';
+  dR.showModal();
+}
 document.getElementById('revTbl').addEventListener('change',e=>{
   const t=e.target;
   if(t.dataset.rc)pendente[+t.dataset.rc].cat=t.value;
   if(t.dataset.rq)pendente[+t.dataset.rq].quem=t.value;
+  if(t.dataset.rin!==undefined){
+    pendente[+t.dataset.rin].fora=!t.checked;
+    const tr=t.closest('tr'); if(tr) tr.classList.toggle('fora',!t.checked);
+    const entram=pendente.filter(x=>!x.fora);
+    const p=document.getElementById('revP');
+    p.innerHTML=p.innerHTML.replace(/<b>\d+ de \d+<\/b> vão entrar — [^·.]+/,
+      `<b>${entram.length} de ${pendente.length}</b> vão entrar — ${brl(entram.reduce((a,x)=>a+x.valor,0))} `);
+  }
 });
 document.getElementById('revCancel').onclick=()=>dR.close();
 document.getElementById('revGo').onclick=()=>{
-  pendente.forEach(x=>{salvarRegra(x.desc,x.cat,x.quem);tocar(x);S.lancamentos.push(x)});
+  const fora=pendente.filter(x=>x.fora).length;
+  pendente=pendente.filter(x=>!x.fora);
+  if(!pendente.length){ dR.close(); toast('Nada foi marcado para entrar.'); return; }
+  pendente.forEach(x=>{delete x.dup;delete x.fora;
+    salvarRegra(x.desc,x.cat,x.quem);tocar(x);S.lancamentos.push(x)});
   const aqui=pendente.filter(x=>mesDoLanc(x)===S.mes).length;
   const n=pendente.length;
   if(!aqui&&n){
@@ -2952,9 +3102,10 @@ document.getElementById('revGo').onclick=()=>{
   }else if(aqui<n){
     toast(`${n} entraram — ${aqui} neste mês, ${n-aqui} em outros pelas datas.`);
   }else{
-    toast(`${n} lançamentos entraram.`);
+    toast(`${n} ${n===1?'lançamento entrou':'lançamentos entraram'}.`
+      +(fora?` ${fora} ${fora===1?'ficou de fora':'ficaram de fora'}.`:''));
   }
-  pendente=[];dR.close();render();
+  pendente=[];csvLidos=[];dR.close();render();
 };
 
 const dF=document.getElementById('dlgForm');let formGo=null;
@@ -2978,8 +3129,21 @@ function abrirForm(titulo,sub,campos,onSave){
   if(pal) pal.onclick=ev=>{const b=ev.target.closest('[data-sw]'); if(!b)return;
     pal.dataset.cor=b.dataset.sw;
     pal.querySelectorAll('.sw').forEach(x=>x.classList.toggle('on',x===b));};
-  dF.showModal();
+  try{ dF.showModal(); }
+  catch(err){ try{ dF.setAttribute('open',''); }catch(e2){} }
   setTimeout(()=>{const f=document.querySelector('#formBody input');if(f)f.focus()},60);
+}
+/* Pergunta o alcance. Se por qualquer motivo a caixa não abrir neste
+   aparelho, usa o menu do próprio navegador — nunca apaga sem perguntar. */
+function perguntarAlcance(titulo,sub,opts,aplicar){
+  abrirForm(titulo,sub,[{k:'alcance',lbl:'Aplicar em',tipo:'select',opts}],o=>{aplicar(o.alcance);});
+  setTimeout(()=>{
+    const aberto=dF.open || dF.hasAttribute('open');
+    if(aberto) return;
+    const n=prompt(`${titulo}\n\n${opts.map((o,i)=>`${i+1}) ${o}`).join('\n')}\n\nDigite 1, 2 ou 3:`,'1');
+    const i=parseInt(n)-1;
+    if(i>=0&&i<opts.length) aplicar(opts[i]);
+  },80);
 }
 document.getElementById('formCancel').onclick=()=>dF.close();
 document.getElementById('formGo').onclick=()=>{if(formGo)formGo()};
@@ -3217,6 +3381,75 @@ document.getElementById('copiarEnt').onclick=()=>{
   copiar.forEach(e=>S.entradas.push({id:uid(),nome:e.nome,valor:e.valor,mes:S.mes,fixa:false,dia:e.dia||5}));
   render();toast(`${copiar.length} entradas copiadas de ${mesLabel(ant)}.`);
 };
+
+document.getElementById('importar').onclick=()=>document.getElementById('arqCSV').click();
+document.getElementById('arqCSV').onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const fr=new FileReader();
+  fr.onload=()=>{
+    try{ lerArquivoCSV(String(fr.result)); }
+    catch(err){ toast('Não consegui ler esse arquivo. Ele é CSV mesmo?'); }
+  };
+  fr.readAsText(f,'utf-8');
+  e.target.value='';
+};
+
+function lerArquivoCSV(texto){
+  const cru=texto.replace(/^\uFEFF/,'').split(/\r?\n/).filter(l=>l.trim());
+  if(cru.length<2){ toast('O arquivo parece vazio.'); return; }
+  const sep=acharSep(texto);
+  const linhas=cru.map(l=>linhaCSV(l,sep)).filter(l=>l.length>1);
+  if(!linhas.length){ toast('Não encontrei colunas nesse arquivo.'); return; }
+
+  /* a primeira linha é cabeçalho se não tiver data nem valor */
+  const prim=linhas[0];
+  const temDados=prim.some(c=>lerData(c)) && prim.some(c=>!isNaN(lerValor(c)));
+  const corpo=temDados?linhas:linhas.slice(1);
+  if(!corpo.length){ toast('O arquivo só tem cabeçalho.'); return; }
+
+  const {iData,iTexto,iValor}=mapearColunas(corpo.slice(0,40));
+  if(iValor<0||iTexto<0){
+    toast('Não achei as colunas de descrição e valor. Me manda o arquivo que eu ajusto.');
+    return;
+  }
+
+  const lidos=[];
+  let pagamentos=0, ignoradas=0;
+  corpo.forEach(l=>{
+    const desc=(l[iTexto]||'').trim();
+    const bruto=lerValor(l[iValor]);
+    if(!desc||isNaN(bruto)||Math.abs(bruto)<0.005){ ignoradas++; return; }
+    /* em fatura, valor negativo costuma ser estorno ou pagamento da fatura */
+    if(bruto<0){ pagamentos++; return; }
+    const data=iData>=0?lerData(l[iData]):'';
+    const mes=data?data.slice(0,7):S.mes;
+    const {cat,quem}=classificar(desc);
+    lidos.push({id:uid(),desc,valor:bruto,data,mes,cat,quem,prev:futuro(mes),pag:'',
+      dup:false});
+  });
+
+  if(!lidos.length){ toast('Nenhuma linha de gasto encontrada nesse arquivo.'); return; }
+
+  csvLidos=lidos; csvInfo={pagamentos,ignoradas,total:corpo.length};
+  abrirEscolhaCartao();
+}
+
+let csvLidos=[], csvInfo={};
+function abrirEscolhaCartao(){
+  const n=csvLidos.length;
+  const min=csvLidos.map(x=>x.data).filter(Boolean).sort()[0];
+  const max=csvLidos.map(x=>x.data).filter(Boolean).sort().slice(-1)[0];
+  const periodo=(min&&max)?`${dm(min)} a ${dm(max)}`:'sem datas no arquivo';
+  abrirForm(`${n} ${n===1?'gasto encontrado':'gastos encontrados'}`,
+    `${periodo}. Em qual forma de pagamento eles entram?`,
+    [{k:'pag',lbl:'Pago com',tipo:'select',opts:S.pagamentos}],
+    o=>{
+      csvLidos.forEach(x=>{ x.pag=o.pag; x.dup=jaExiste(x); });
+      dF.close();
+      pendente=csvLidos;
+      mostrarRevisao(true);
+    });
+}
 
 document.getElementById('exportar').onclick=()=>{
   const R=resumo(S.mes),linhas=[['Data','Descrição','Categoria','Subcategoria','Quem','Tipo','Situação','Pago com','Valor']];
